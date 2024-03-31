@@ -2,7 +2,6 @@ import * as RadixDialog from '@radix-ui/react-dialog'
 import * as React from 'react'
 import { commandScore } from './command-score'
 import { Primitive } from '@radix-ui/react-primitive'
-import { useId } from '@radix-ui/react-id'
 
 type Children = { children?: React.ReactNode }
 type DivProps = React.ComponentPropsWithoutRef<typeof Primitive.div>
@@ -40,6 +39,7 @@ type ListProps = Children &
   }
 type ItemProps = Children &
   Omit<DivProps, 'disabled' | 'onSelect' | 'value'> & {
+    id: string
     /** Whether this item is currently disabled. */
     disabled?: boolean
     /** Event handler for when this item is selected, either via click or keyboard selection. */
@@ -56,6 +56,7 @@ type ItemProps = Children &
   }
 type GroupProps = Children &
   Omit<DivProps, 'heading' | 'value'> & {
+    id: string
     /** Optional heading to render for this group. */
     heading?: React.ReactNode
     /** If no heading is provided, you must provide a value that is unique for this group. */
@@ -114,6 +115,9 @@ type CommandProps = Children &
      * Set to `false` to disable ctrl+n/j/p/k shortcuts. Defaults to `true`.
      */
     vimBindings?: boolean
+    listId: string
+    labelId: string
+    inputId: string
   }
 
 type Context = {
@@ -164,6 +168,28 @@ const useStore = () => React.useContext(StoreContext)
 // @ts-ignore
 const GroupContext = React.createContext<Group>(undefined)
 
+function useSyncExternalStore<Snapshot>(
+  subscribe: (onStoreChange: () => void) => () => void,
+  getSnapshot: () => Snapshot,
+) {
+  const [state, setState] = React.useState(getSnapshot);
+
+  React.useEffect(() => {
+    // Update the state with the current snapshot
+    setState(getSnapshot());
+
+    // Subscribe to the external store
+    const unsubscribe = subscribe(() => {
+      setState(getSnapshot());
+    });
+
+    // Unsubscribe on cleanup
+    return unsubscribe;
+  }, [subscribe, getSnapshot]);
+
+  return state;
+}
+
 const getId = (() => {
   let i = 0
   return () => `${i++}`
@@ -203,13 +229,12 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
     shouldFilter,
     loop,
     disablePointerSelection = false,
+    listId,
+    inputId,
+    labelId,
     vimBindings = true,
     ...etc
   } = props
-
-  const listId = useId()
-  const labelId = useId()
-  const inputId = useId()
 
   const listInnerRef = React.useRef<HTMLDivElement>(null)
 
@@ -652,7 +677,7 @@ const Command = React.forwardRef<HTMLDivElement, CommandProps>((props, forwarded
  * the rendered item's `textContent`.
  */
 const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) => {
-  const id = useId()
+  const id = props.id
   const ref = React.useRef<HTMLDivElement>(null)
   const groupContext = React.useContext(GroupContext)
   const context = useCommand()
@@ -718,10 +743,10 @@ const Item = React.forwardRef<HTMLDivElement, ItemProps>((props, forwardedRef) =
  */
 const Group = React.forwardRef<HTMLDivElement, GroupProps>((props, forwardedRef) => {
   const { heading, children, forceMount, ...etc } = props
-  const id = useId()
+  const id = props.id
   const ref = React.useRef<HTMLDivElement>(null)
   const headingRef = React.useRef<HTMLDivElement>(null)
-  const headingId = useId()
+  const headingId = `cmdk-heading-${id}`
   const context = useCommand()
   const render = useCmdk((state) =>
     forceMount ? true : context.filter() === false ? true : !state.search ? true : state.filtered.groups.has(id),
@@ -1013,7 +1038,7 @@ function mergeRefs<T = any>(refs: Array<React.MutableRefObject<T> | React.Legacy
 function useCmdk<T = any>(selector: (state: State) => T) {
   const store = useStore()
   const cb = () => selector(store.snapshot())
-  return React.useSyncExternalStore(store.subscribe, cb, cb)
+  return useSyncExternalStore(store.subscribe, cb)
 }
 
 function useValue(
