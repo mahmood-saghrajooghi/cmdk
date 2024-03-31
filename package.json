@@ -1,7 +1,9 @@
 {
   "name": "cmdk-root",
-  "private": true,
-  "main": "cmdk/dist/index.js",
+  "version": "1.0.0",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "scripts": {
     "build": "pnpm -F cmdk build",
     "dev": "pnpm -F cmdk build --watch",
@@ -12,7 +14,17 @@
     "test:format": "prettier '**/*.{js,jsx,ts,tsx,json,md,mdx,css,scss,yaml,yml}' --check",
     "test": "playwright test"
   },
+  "peerDependencies": {
+    "react": "^17.0.2",
+    "react-dom": "^17.0.2"
+  },
+  "dependencies": {
+    "@radix-ui/react-dialog": "1.0.5",
+    "@radix-ui/react-primitive": "1.0.3"
+  },
+  "sideEffects": false,
   "devDependencies": {
+    "@types/react": "18.0.15",
     "@playwright/test": "1.41.1",
     "husky": "^8.0.1",
     "lint-staged": "15.2.0",
